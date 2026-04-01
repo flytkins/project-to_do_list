@@ -1,4 +1,11 @@
-const API_URL = ""; // Relative to same origin (nginx proxy handles /tasks)
+const API_URL = "";
+
+// --- Auth guard ---
+const userId = localStorage.getItem("user_id");
+const username = localStorage.getItem("username");
+if (!userId) {
+  window.location.href = "login.html";
+}
 
 const taskForm = document.getElementById("taskForm");
 const taskList = document.getElementById("taskList");
@@ -65,7 +72,7 @@ function renderTasks() {
 
 // Fetch all tasks from server
 async function loadTasks() {
-  const response = await fetch(`${API_URL}/tasks`);
+  const response = await fetch(`${API_URL}/tasks?user_id=${userId}`);
   allTasks = await response.json();
   renderTasks();
 }
@@ -75,7 +82,7 @@ async function createTask(title) {
   await fetch(`${API_URL}/tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, status: "pending" })
+    body: JSON.stringify({ title, status: "pending", owner_id: Number(userId) })
   });
   loadTasks();
 }
@@ -123,6 +130,14 @@ searchInput.addEventListener("input", (e) => {
   searchQuery = e.target.value;
   renderTasks();
 });
+
+// Show username and logout button
+document.getElementById("usernameDisplay").textContent = username;
+
+function logout() {
+  localStorage.clear();
+  window.location.href = "login.html";
+}
 
 // Initial load
 loadTasks();
