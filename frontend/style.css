@@ -18,6 +18,10 @@ h1 {
   text-align: center;
 }
 
+form, .search-container {
+  margin-bottom: 15px;
+}
+
 form {
   display: flex;
   gap: 10px;
@@ -41,9 +45,28 @@ ul {
 
 li {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   padding: 8px;
   background: #eef1f5;
   margin-bottom: 8px;
   border-radius: 6px;
+}
+
+.task-title {
+  flex: 1;
+  margin: 0 10px;
+}
+
+.completed {
+  text-decoration: line-through;
+  color: #888;
+}
+
+li button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  margin-left: 5px;
+  cursor: pointer;
 }
