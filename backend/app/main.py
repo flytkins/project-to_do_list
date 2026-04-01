@@ -65,6 +65,7 @@ class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     status: Optional[str] = "pending"
+    owner_id: int
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -77,6 +78,7 @@ class TaskResponse(BaseModel):
     description: Optional[str]
     status: str
     created_at: datetime
+    owner_id: int
 
     class Config:
         from_attributes = True
@@ -87,10 +89,11 @@ def read_root():
 
 @app.get("/tasks", response_model=List[TaskResponse])
 def get_tasks(
+    user_id: int = Query(..., description="ID of the current user"),
     search: Optional[str] = Query(None, description="Search in title and description"),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Task)
+    query = db.query(Task).filter(Task.owner_id == user_id)
     if search:
         query = query.filter(
             Task.title.ilike(f"%{search}%") | Task.description.ilike(f"%{search}%")
