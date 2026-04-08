@@ -3,7 +3,8 @@ const API_URL = "";
 // --- Auth guard ---
 const userId = localStorage.getItem("user_id");
 const username = localStorage.getItem("username");
-if (!userId) {
+if (!userId || isNaN(Number(userId))) {
+  localStorage.clear();
   window.location.href = "login.html";
 }
 
