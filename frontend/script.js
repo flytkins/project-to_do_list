@@ -74,7 +74,13 @@ function renderTasks() {
 // Fetch all tasks from server
 async function loadTasks() {
   const response = await fetch(`${API_URL}/tasks?user_id=${userId}`);
-  allTasks = await response.json();
+  if (!response.ok) {
+    localStorage.clear();
+    window.location.href = "login.html";
+    return;
+  }
+  const data = await response.json();
+  allTasks = Array.isArray(data) ? data : [];
   renderTasks();
 }
 
@@ -134,11 +140,10 @@ searchInput.addEventListener("input", (e) => {
 
 // Show username and logout button
 document.getElementById("usernameDisplay").textContent = username;
-
-function logout() {
+document.getElementById("logoutBtn").addEventListener("click", function () {
   localStorage.clear();
   window.location.href = "login.html";
-}
+});
 
 // Initial load
 loadTasks();
