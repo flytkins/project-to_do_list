@@ -140,10 +140,16 @@ searchInput.addEventListener("input", (e) => {
 
 // Show username and logout button
 document.getElementById("usernameDisplay").textContent = username;
-document.getElementById("logoutBtn").addEventListener("click", function () {
+
+function logout() {
   localStorage.clear();
   window.location.href = "login.html";
-});
+}
+
+var logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", logout);
+}
 
 // Initial load
 loadTasks();
