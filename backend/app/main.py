@@ -6,7 +6,7 @@ from typing import Optional, List
 from datetime import datetime
 
 from .database import engine, SessionLocal
-from .models import Base, Task
+from .models import Base, Task, User
 
 app = FastAPI(title="TODO API")
 
@@ -29,11 +29,43 @@ def get_db():
     finally:
         db.close()
 
+# Auth schemas
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+
+    class Config:
+        from_attributes = True
+
+# Auth endpoints
+@app.post("/register", response_model=UserResponse)
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.username == user.username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    db_user = User(username=user.username, password=user.password)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@app.post("/login", response_model=UserResponse)
+def login(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.username == user.username).first()
+    if not db_user or db_user.password != user.password:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    return db_user
+
 # Request/Response schemas
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     status: Optional[str] = "pending"
+    owner_id: int
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -46,6 +78,7 @@ class TaskResponse(BaseModel):
     description: Optional[str]
     status: str
     created_at: datetime
+    owner_id: int
 
     class Config:
         from_attributes = True
@@ -56,10 +89,11 @@ def read_root():
 
 @app.get("/tasks", response_model=List[TaskResponse])
 def get_tasks(
+    user_id: int = Query(..., description="ID of the current user"),
     search: Optional[str] = Query(None, description="Search in title and description"),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Task)
+    query = db.query(Task).filter(Task.owner_id == user_id)
     if search:
         query = query.filter(
             Task.title.ilike(f"%{search}%") | Task.description.ilike(f"%{search}%")
