@@ -1,0 +1,51 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main, master] # или ваша основная ветка
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Ensure Dockerfile naming
+        run: |
+          # Переименовываем Dockerfile.txt → Dockerfile (если не сделано в репозитории)
+          if [ -f backend/Dockerfile.txt ]; then
+            mv backend/Dockerfile.txt backend/Dockerfile
+          fi
+
+      - name: Copy files to VPS via rsync
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          source: ".,!**/.git,!**/.env"
+          target: ${{ secrets.VPS_PATH }}
+          strip_components: 0
+          # rsync не поддерживается, scp скопирует всё, включая .git (можно удалить потом)
+
+      - name: Execute remote deployment commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ secrets.VPS_PATH }}
+            # Создать .env если отсутствует (но лучше вручную создать один раз)
+            if [ ! -f .env ]; then
+              cp .env.example .env
+              echo "⚠️ Please edit .env with real passwords manually!"
+              exit 1
+            fi
+            # Остановить старые контейнеры
+            docker compose down
+            # Пересобрать и запустить
+            docker compose up --build -d
+            # Очистка неиспользуемых образов
+            docker image prune -f

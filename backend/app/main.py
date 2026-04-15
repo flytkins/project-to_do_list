@@ -109,8 +109,8 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db)):
     return db_task
 
 @app.patch("/tasks/{task_id}", response_model=TaskResponse)
-def update_task(task_id: int, task_update: TaskUpdate, db: Session = Depends(get_db)):
-    db_task = db.query(Task).filter(Task.id == task_id).first()
+def update_task(task_id: int, task_update: TaskUpdate, user_id: int = Query(..., description="ID текущего пользователя"), db: Session = Depends(get_db)):
+    db_task = db.query(Task).filter(Task.id == task_id, Task.owner_id == user_id).first()
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -122,8 +122,8 @@ def update_task(task_id: int, task_update: TaskUpdate, db: Session = Depends(get
     return db_task
 
 @app.delete("/tasks/{task_id}")
-def delete_task(task_id: int, db: Session = Depends(get_db)):
-    task = db.query(Task).filter(Task.id == task_id).first()
+def delete_task(task_id: int, user_id: int = Query(..., description="ID текущего пользователя"), db: Session = Depends(get_db)):
+    task = db.query(Task).filter(Task.id == task_id, Task.owner_id == user_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     db.delete(task)
