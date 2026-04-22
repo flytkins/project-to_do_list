@@ -75,7 +75,7 @@ jobs:
       - name: Run Playwright tests
         run: |
           cd frontend
-          npx playwright test
+          node_modules/.bin/playwright test
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
