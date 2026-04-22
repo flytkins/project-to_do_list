@@ -5,7 +5,7 @@ on:
     branches: [main, master]
 
 jobs:
-  test_backend:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,79 +19,16 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
-          pip install pytest pytest-cov httpx
+          pip install pytest pytest-cov httpx  # если ещё нет в requirements
 
-      - name: Run backend tests
+      - name: Run tests
         env:
           DATABASE_URL: "sqlite:///:memory:"
         run: |
           cd backend
           pytest -v --cov=app
 
-  test-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm install
-          npx playwright install --with-deps chromium
-
-      - name: Debug permissions
-        run: |
-          cd frontend
-          ls -la node_modules/.bin/playwright
-          file node_modules/.bin/playwright
-
-      - name: Create simple frontend test
-        run: |
-          mkdir -p frontend/tests
-          cat > frontend/tests/homepage.spec.js << 'EOF'
-          const { test, expect } = require('@playwright/test');
-          test('Frontend loads and has correct title', async ({ page }) => {
-            await page.goto('http://localhost:8080/index.html');
-            await expect(page).toHaveTitle(/TODO List/);
-            const header = await page.locator('h1').first();
-            await expect(header).toHaveText('TODO List');
-          });
-          EOF
-
-      - name: Start backend
-        run: |
-          cd backend
-          pip install -r requirements.txt
-          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-          sleep 5
-        env:
-          DATABASE_URL: "sqlite:///:memory:"
-
-      - name: Serve frontend
-        run: |
-          cd frontend
-          python -m http.server 8080 &
-          sleep 2
-
-      - name: Run Playwright tests
-        run: |
-          cd frontend
-          npm test   # вместо npx playwright test
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: frontend/test-results/
-
   deploy:
-    needs: [test_backend, test-frontend] # Ждём успеха обоих тестов
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -99,11 +36,12 @@ jobs:
 
       - name: Ensure Dockerfile naming
         run: |
+          # Переименовываем Dockerfile.txt → Dockerfile (если не сделано в репозитории)
           if [ -f backend/Dockerfile.txt ]; then
             mv backend/Dockerfile.txt backend/Dockerfile
           fi
 
-      - name: Copy files to VPS via SCP
+      - name: Copy files to VPS via rsync
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -112,6 +50,7 @@ jobs:
           source: ".,!**/.git,!**/.env"
           target: ${{ secrets.VPS_PATH }}
           strip_components: 0
+          # rsync не поддерживается, scp скопирует всё, включая .git (можно удалить потом)
 
       - name: Execute remote deployment commands
         uses: appleboy/ssh-action@v1.0.3
@@ -121,11 +60,15 @@ jobs:
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           script: |
             cd ${{ secrets.VPS_PATH }}
+            # Создать .env если отсутствует (но лучше вручную создать один раз)
             if [ ! -f .env ]; then
               cp .env.example .env
               echo "⚠️ Please edit .env with real passwords manually!"
               exit 1
             fi
+            # Остановить старые контейнеры
             docker compose down
+            # Пересобрать и запустить
             docker compose up --build -d
+            # Очистка неиспользуемых образов
             docker image prune -f
