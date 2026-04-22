@@ -38,11 +38,10 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install Playwright
+      - name: Install frontend dependencies
         run: |
           cd frontend
-          npm init -y
-          npm install --save-dev @playwright/test
+          npm install
           npx playwright install --with-deps chromium
 
       - name: Create simple frontend test
@@ -50,9 +49,7 @@ jobs:
           mkdir -p frontend/tests
           cat > frontend/tests/homepage.spec.js << 'EOF'
           const { test, expect } = require('@playwright/test');
-
           test('Frontend loads and has correct title', async ({ page }) => {
-            // Используем относительный путь, сервер будет на порту 8080
             await page.goto('http://localhost:8080/index.html');
             await expect(page).toHaveTitle(/TODO List/);
             const header = await page.locator('h1').first();
